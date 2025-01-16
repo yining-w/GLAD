@@ -256,341 +256,62 @@ quietly {
 
     noi disp as res "{phang}Step L.3 completed (`output_file'){p_end}"
 
-  
-    *---------------------------------------------------------------------------
-    * L.4) ESCS and other calculations (by Aroob, from Feb 2019)
-    *---------------------------------------------------------------------------
+	** Bullying by...
+	
+	** HOME **
+	* 1) Early Numeracy / Literacy Activities Index, Before
+	* as*hela, hena, heln, helt, hlnt
 
+	* 2) What do you think of your child's school? Agree to disagree - b) safe environment
+	lab var asbh09b "Agree to disagree: Child's school provides a safe environment"
+	// asbh09a asbh09b asbh09c asbh09d asbh09e asbh09f asbh09g
+	
+	save "${clone}/03_output/TIMSS_2019_WLD.dta", replace
+	
+	** SCHOOL ** 
     *NOT replacing IDCNTRY for England and Scotland (original do file)
     *replace IDCNTRY = 826 if inlist(IDCNTRY,927,926,928)
     *replace IDCNTRY = 056 if inlist(IDCNTRY,956,957)
     *Identifying whether the datasets are nationally representative
-    gen n_res = 0 if inlist(idcntry,927,926,928,956,957)
 
-    *** QUICK FIX ****
-    rename *, upper
-    ******************
-
-    *Score and thresholds:
-    foreach pv in 01 02 03 04 05 {
-      clonevar SCORE_MATH`pv' = ASMMAT`pv'
-      clonevar SCORE_SCIENCE`pv' = ASSSCI`pv'
-      clonevar MATH_THRESHOLD`pv' = ASMIBM`pv'
-      clonevar SCIENCE_THRESHOLD`pv' = ASSIBM`pv'
-    }
-    foreach var of varlist MATH_THRESHOLD* SCIENCE_THRESHOLD*{
-      gen LOW_`var' = (`var' > 1) & !missing(`var')
-      gen INT_`var' = (`var' > 2) & !missing(`var')
-      gen HIGH_`var' = (`var' > 3) & !missing(`var')
-      gen ADV_`var' = (`var' > 4) & !missing(`var')
-    }
-
-    *Generating variable for NATIVE:
-    gen NATIVE = 1 if ASBG07 == 1 | ASBG06B == 1 | ASBG06A == 1
-    replace NATIVE = 0 if (ASBG06B == 0 & ASBG06A == 0)
-    label variable NATIVE "Native"
-
-    *Generating variable for Language at home
-    gen LANGATHOME = 1 if inlist(ASBG03,1,2)
-    replace LANGATHOME = 0 if inlist(ASBG03,3,4)
-    label var LANGATHOME "Speaks language of test at home"
-
-    *Generating variable for early childhood education
-    gen ECE = 1 if inlist(ASDHAPS,1,2,3)
-    replace ECE = 0 if ASDHAPS == 0
-    label var ECE "Received Early Childhood Education/Pre-primary education"
-    label define lyes 0 "No" 1 "Yes"
-    label values ECE lyes
-
-    *Generating duration for early childhood education
-    gen DURECE = ASDHAPS if ASDHAPS != 9
-    
-    * Comment_AR: This is where the code breaks: Summarize these vars: Describe of these vars in 2015 TIMSS. Remove K & J (country specific)
-	* asbg05a asbg05b asbg05c asbg05d asbg05e asbg05f asbg05g asbg05h asbg05i
-
-    local asset_var "ASBG05A ASBG05B ASBG05C ASBG05D ASBG05E ASBG05F ASBG05G ASBG05H ASBG05I"
-    local asset_std "ASBG05A_std ASBG05B_std ASBG05C_std ASBG05D_std ASBG05E_std ASBG05F_std ASBG05G_std ASBG05H_std ASBG05I_std"
-    
-    *Generating ESCS:
-    foreach var of varlist ASBG04 ASDHOCCP `asset_var' ASDHEDUP ASBG06A ASBG06B ASBG07 {
-      tab `var'
-      replace `var' = . if inlist(`var',7,9,99)
-    }
-    replace ASDHEDUP = . if ASDHEDUP == 6
-    gen NBOOK = ASBG04 if ASBG04 != 9
-
-    foreach var of varlist `asset_var' ASBG06A ASBG06B ASBG07 {
-      tab `var', m
-      *hist `var'
-      replace `var' = 0 if `var' == 2
-    }
-
-    * this aplhawgt number should be higher than 0.80. Any missing on these vectors
-    
-    alphawgt NBOOK `asset_var' [weight = TOTWGT], detail std item label
-    mdesc NBOOK `asset_var'
-    tab NBOOK, gen(dbook)
-    foreach var of varlist dbook* `asset_var' {
-      bysort IDCNTRY IDSCHOOL: egen `var'_mean = mean(`var')
-      bysort IDCNTRY: egen `var'_mean_cnt = mean(`var')
-      replace `var' = `var'_mean if missing(`var')
-      replace `var' = `var'_mean_cnt
-      egen `var'_std = std(`var')
-    }
-    *Some countries are not asked the additional items:
-    *Identifying those countries:
-    gen tag_missing_5H = .
-    gen tag_missing_5I = .
-    * gen tag_missing_5J = .  //  Comment_AR: NA in 2019
-    * gen tag_missing_5K = .  //  Comment_AR: NA in 2019
-    levelsof IDCNTRY, local(country)
-    foreach c of local country {
-      mdesc ASBG05H if IDCNTRY == `c'
-      replace tag_missing_5H = 1 if r(percent) == 100 & IDCNTRY == `c'
-      mdesc ASBG05I if IDCNTRY == `c'
-      replace tag_missing_5I = 1 if r(percent) == 100 & IDCNTRY == `c'
-    * mdesc ASBG05J if IDCNTRY == `c'
-    * replace tag_missing_5J = 1 if r(percent) == 100 & IDCNTRY == `c'
-    * mdesc ASBG05K if IDCNTRY == `c'
-    * replace tag_missing_5K = 1 if r(percent) == 100 & IDCNTRY == `c'
-    }
-    
-    pca dbook*_std `asset_std' [weight = TOTWGT]
-    predict HOMEPOS
-    pca dbook*_std `asset_std' [weight = TOTWGT]
-    predict HOMEPOS1
-    pca dbook*_std `asset_std' [weight = TOTWGT]
-    predict HOMEPOS2
-    pca dbook*_std `asset_std' [weight = TOTWGT]
-    predict HOMEPOS3
-    pca dbook*_std `asset_std' [weight = TOTWGT]
-    predict HOMEPOS4
-    replace HOMEPOS = HOMEPOS1 if missing(HOMEPOS)
-    replace HOMEPOS = HOMEPOS2 if missing(HOMEPOS)
-    replace HOMEPOS = HOMEPOS3 if missing(HOMEPOS)
-    replace HOMEPOS = HOMEPOS4 if missing(HOMEPOS)
-
-    *Recoding ASDHOCCP ASDHEDUP to be in the same direction as HOMEPOS
-    recode ASDHOCCP (1=6) (2=5) (3=4) (4=3) (5=2) (6=1), gen(HIOCC)
-    recode ASDHEDUP (1=5 "University or Higher") (2=4 "Post-Secondary but not University") (3=3 "Upper Secondary") (4=2 "Lower Secondary") (5=1 "Some Primary, Lower Secondary or No Education"), gen(HIEDU)
-    gen tag_missing_occupation = .
-    gen tag_missing_education = .
-    levelsof IDCNTRY, local (country)
-    foreach c of local country {
-      mdesc HIOCC if IDCNTRY == `c'
-      replace tag_missing_occupation = 1 if r(percent) == 100 & IDCNTRY == `c'
-      mdesc HIEDU if IDCNTRY == `c'
-      replace tag_missing_education = 1 if r(percent) == 100 & IDCNTRY == `c'
-    }
-    *Two countries do not have information on education and occupation: United States of America and IDCNTRY == 926
-    foreach var of varlist HIEDU HIOCC {
-      bysort IDCNTRY IDSCHOOL: egen `var'_mode = mode(`var'), maxmode
-      bysort IDCNTRY: egen `var'_mode_cnt = mode(`var'), maxmode
-      replace `var' = `var'_mode if missing(`var')
-      replace `var' = `var'_mode_cnt if missing(`var')
-    }
-    polychoricpca HIEDU HOMEPOS [weight = TOTWGT], score(ESCS) nscore(1)
-    ren ESCS1 ESCS
-
-    
-    
-    
-    *Standardizing ESCS variable:
-    bysort IDCNTRY: egen ESCS_mean = mean(ESCS)
-    bysort IDCNTRY: egen ESCS_sd = sd(ESCS)
-    gen ESCS_std = (ESCS - ESCS_mean)/ESCS_sd
-
-    
-        
-    
-    * Comment_AR: Ask Aroob about this !
-    
-    *Confirming that countries with missing occupation do not have information on education too.
-    * assert tag_missing_education == tag_missing_occupation 
-    
-    *Generating variable for feeling of belonging:
-    foreach var of varlist ASBG10* {
-      replace `var' = . if `var' == 9
-      recode `var' (4=1) (3=2) (2=3) (1=4), gen(`var'_n)
-    }
-    
-
-/*    
-    foreach var of varlist ASBG12* {
-      replace `var' = . if `var' == 9
-    }
-  
-    ASBG12* vars not found.
-*/    
-
-* Comment_AR: ASBG11*_n vars not found to generate SPBS 
-
-/*
-    alphawgt ASBG11*_n  [weight = TOTWGT], detail std item label generate(SPBS)
-    
-    *Standardizing SPBS:
-    bysort IDCNTRY: egen SPBS_mean = mean(SPBS)
-    bysort IDCNTRY: egen SPBS_sd = sd(SPBS)
-    gen SPBS_std = (SPBS - SPBS_mean)/SPBS_sd
-    
-*/    
-
-    *Gen variable for Additional Instruction in Math:
-    gen HADDINSTM = ASDHAPS if ASDHAPS != 9
-
-    *Generating variable for expected level of education to be attained by the student:
-    
-    * Comment_AR: ASBH21 IS ASBH16 i.e. Gen lvl of education of the child
-    gen EXPEDU = ASBH16
-    replace EXPEDU = . if EXPEDU == 9
-    label values EXPEDU ASBH21
-
-    *Generating school-level variables:
-    *Mean school level ESCS:
-    bysort IDCNTRY IDSCHOOL: egen SCHESCS = mean(ESCS_std)
-    bysort IDCNTRY : egen CNTESCS = mean(ESCS_std)
-
-    
-
-    
-    *Creating variable for school resources:
-    foreach var of varlist /*ACBG09A ACBG09B*/ ACBG09 ACBG11 /*ACBG12A ACBG12B*/ ACBG12 /*ACBG13*/ ACBG13AA ACBG13AB ACBG13AC ACBG13AD ACBG13AE ACBG13AF ACBG13AG ACBG13AH ACBG13AI ACBG13BA ACBG13BB ACBG13BC ACBG13BD ACBG13BE ACBG13CA ACBG13CB ACBG13CC ACBG13CD /*ACBG13AA ACBG13AB ACBG13BA ACBG13BB*/ ACBG14A ACBG14B ACBG14C ACBG14D ACBG14E ACBG14F ACBG14G ACBG14H ACBG14I ACBG14J ACBG14K /*ACBG14AA ACBG14AB ACBG14AC ACBG14AD ACBG14AE ACBG14AF ACBG14AG ACBG14AH ACBG14AI ACBG14BA ACBG14BB ACBG14BC ACBG14BD ACBG14BE ACBG14CA ACBG14CB ACBG14CC ACBG14CD*/ {
-      tab `var'
-    }
-    foreach var of varlist ACBG14* {
-      replace `var' = . if `var' == 9
-      recode `var' (4=1) (3=2) (2=3) (1=4), gen(`var'_n)
-    }
-    foreach var of varlist ACBG13A* {
-      replace `var' = . if inlist(`var',96,99)
-    }
-    foreach var of varlist ACBG13B* {
-      replace `var' = . if inlist(`var',6,9)
-    }
-    foreach var of varlist ACBG09 ACBG12 /*ACBG09A ACBG09B ACBG12A ACBG12B ACBG13*/ {
-      replace `var' = . if inlist(`var',6,9)
-      replace `var' = 0 if `var' == 2
-    }
-    
-    
-    
-    replace ACBG11 = . if ACBG11 == 9999
-    alphawgt /*ACBG09A ACBG09B*/ ACBG09 ACBG11 /*ACBG12A ACBG12B*/ ACBG12 /*ACBG13*/ /*ACBG13AA ACBG13AB ACBG13BA ACBG13BB*/ ACBG13AA ACBG13AB ACBG13AC ACBG13AD ACBG13AE ACBG13AF ACBG13AG ACBG13AH ACBG13AI ACBG13BA ACBG13BB ACBG13BC ACBG13BD ACBG13BE ACBG13CA ACBG13CB ACBG13CC ACBG13CD /*ACBG14AA_n ACBG14AB_n ACBG14AC_n ACBG14AD_n ACBG14AE_n ACBG14AF_n ACBG14AG_n ACBG14AH_n ACBG14AI_n ACBG14BA_n ACBG14BB_n ACBG14BC_n ACBG14BD_n ACBG14BE_n ACBG14CA_n ACBG14CB_n ACBG14CC_n ACBG14CD_n*/ ACBG14A_n ACBG14B_n ACBG14C_n ACBG14D_n ACBG14E_n ACBG14F_n ACBG14G_n ACBG14H_n ACBG14I_n ACBG14J_n ACBG14K_n [weight = TOTWGT], detail std item label generate(SCHRCS)
-    
-    *Standardizing school resources:
-    bysort IDCNTRY: egen SCHRCS_mean = mean(SCHRCS)
-    bysort IDCNTRY: egen SCHRCS_sd = sd(SCHRCS)
-    gen SCHRCS_std = (SCHRCS - SCHRCS_mean)/SCHRCS_sd
-
- 
-    *Generating variable for school environment:
-    foreach var of varlist ACBG15* {
-      tab `var'
-      recode `var' (1=5) (2=4) (4=2) (5=1) (9=.), gen(`var'_n)
-    }
-    foreach var of varlist ACBG16* ACBG17*{
-      recode `var' (1=4) (2=3) (3=2) (4=1) (9=.), gen(`var'_n)
-    }
-    alphawgt ACBG15*_n ACBG16*_n ACBG17*_n  [weight = TOTWGT], detail std item label generate(LE)
-    *Standardizing LE:
-    bysort IDCNTRY: egen LE_mean = mean(LE)
-    bysort IDCNTRY: egen LE_sd = sd(LE)
-    gen LE_std = (LE - LE_mean)/LE_sd
-
-    *Generating Ability grouping:
-    gen ABGROUP = 1 if ACBG10A == 1
-    replace ABGROUP = 0 if ACBG10A == 2
-
-
-    *Generating variable for Instructional time (in minutes per week) 
-    *Comment_AR: In TIMSS 2019 we have Total instructional ()hours per year)
-    
-    
-    replace ACDGTIHY = . if ACDGTIHY == 9999
-    gen YIT = ACDGTIHY * 60
-    label var YIT "Yearly instructional time (in minutes)"
-
-    
-    /*
-    replace ACDG08HY = . if ACDG08HY == 9999
-    gen YIT = ACDG08HY
-    label var YIT "Yearly instructional time (in minutes)"
-    */
-
-    /*Comment_AR: alphawgt command breaks with ASBH11*_n 
-    
-    
-    *Generating variable for parental perception of school quality:
-    foreach var of varlist ASBH11* {
-      tab `var'
-      recode `var' (1=4) (2=3) (3=2) (4=1) (9=.), gen(`var'_n)
-    }
-    alphawgt ASBH11*_n [weight = TOTWGT],detail std item label generate(PPSQ)
-    *Standardizing:
-    egen PPSQ_std = std(PPSQ)
-
-    */
-    
-    /*
-    
-    Comment_AR: not working - need to troubleshoot more. 
-    
-    *Generting parental variables:
-
-    *Generating variable for Parental Involvement in Education:
-    foreach var of varlist ASBH02* {
-      replace `var' = . if `var' == 9
-      recode `var' (3=1) (1=3), gen(`var'_n)
-    }
-    foreach var of varlist ASBH09* {
-      replace `var' = . if inlist(`var',6,9)
-      recode `var' (1=5) (2=4) (3=3) (4=2) (5=1), gen(`var'_n)
-    }
-    
-    
-    alphawgt ASBH02*_n ASBH09BA_n ASBH09BB_n ASBH09BC_n [weight = TOTWGT], detail std item label generate(PI)
-    *Standardizing PI:
-    egen PI_std = std(PI)
-
-    */
-
-    
-    *** QUICK FIX ****
-    rename *, lower
-    ******************
+	* h, i, j (intimidation, verbal abuse among students)
+	* acbg15a acbg15b acbg15c acbg15d acbg15e acbg15f acbg15g acbg15h acbg15i acbg15j
+	/*
 	
-	* Quintiles of ESCS // this setion of the code used to be in 0221 or 0222.
-	* This is the variable used to compute results by Socio Economic Status.
-	* Ensure that CNTRY Identifer is used as STRING.
-	*<_qescs_>
-	tempvar cntrycode
-	cap: confirm numeric variable idcntry_raw
-	if (_rc == 0) {
-		tostring idcntry_raw, gen(`cntrycode')
-	}
-	else {
-		clonevar `cntrycode' = idcntry_raw
-	}
-	cap: sum qescs
-	if (_rc!=0) {
-		gen byte qescs = .
-		levelsof idgrade, local(grades)
-		levelsof `cntrycode', local(countries)
-		foreach country of local countries {
-			foreach grade of local grades {
-				capture drop qaux
-				capture xtile qaux = escs if `cntrycode' == "`country'" & idgrade == `grade' [aw = learner_weight] , nq(5)
-				if _rc == 0 replace qescs = qaux if `cntrycode' == "`country'" & idgrade == `grade'
-			}
-		}
-	}
-	label var qescs "Quintiles of Socio-Economic Status"
-	*</_qescs_>
+	** 1. CDF distribution of math/science scores among those who were bullied versus not, 4th and 8th grade 
+	** 2019 and 2023
+	alorenz asssci01 [aw=learner_weight], gp points(300) by(asdgsb) 
+	// add mpl line
+	
+//markvar(ctry) 
+	** 2. Within / between school inequality on bullying, 4th and 8th grade
+	ineqdeco asssci01 [aw = learner_weight] if cntry=="jpn", by(idschool)
+	//asbgsb 
+	* 
+	/*
+	       r(between_a2) =  .001075153902055
+         r(between_a1) =  .0005050754898099
+      r(between_ahalf) =  .0002461340258986
+          r(within_a2) =  .0159525241243196
+          r(within_a1) =  .0077432565902942
 
-	 *<_has_qescs_>
-	gen byte has_qescs = (qescs != .)
-	label var has_qescs "Dummy variable for observations with a valid QESCS"
-	*</_has_qescs_>
+	*/
+	/*
+	*/
+	** 3. Between 2019 and 2023 -- was the bullying among those who were 
+	* most frequently bullied (change in distribution) or change in the mean?
+	
+	** 3. Bullying index on categorical home resources / earlier literacy (inequality is more stark among students along the lowest end of the specturm)
+	local vars "acbgdas asbghrl asbheln"
+	foreach xvar in `vars' {
+	local label : variable label `xvar'
+	twoway kdensity `xvar' if asdgsb==1, bwidth(1) || kdensity `xvar' if asdgsb==2, bwidth(1) || kdensity `xvar' if asdgsb==3, bwidth(1) title("`l'")
+	//graph export "${clone}/`xvar'.jpg", replace
+	}	
+
+	
+  
+ 
 	
     noi disp as res "{phang}Step L.4 completed (`output_file'){p_end}"
     
@@ -806,126 +527,7 @@ quietly {
       gen ADV_`var' = (`var' > 4) & !missing(`var')
     }
 
-    *Generating variable: ESCS
-    foreach var of varlist BSBG04 BSBG05* BSBG06A BSBG06B /*BSBG06C BSBG06D BSBG06E BSBG06F BSBG06G BSBG06H BSBG06I BSBG06J BSBG06K*/ BSBG07  /*BSBG07A BSBG07B*/ {
-      tab `var'
-      replace `var' = . if inlist(`var',8,9,99)
-    }
-    gen NBOOK = BSBG04 if BSBG04 != 9
-    foreach var of varlist  BSBG05* {
-      tab `var', m
-      *hist `var'
-      replace `var' = 0 if `var' == 2
-    }
-    
-    
-    alphawgt NBOOK  BSBG05* BSBG06A BSBG06B /*BSBG05 BSBG06A BSBG06B BSBG06C BSBG06D BSBG06E BSBG06F BSBG06G BSBG06H BSBG06I BSBG06J BSBG06K*/ [weight = TOTWGT], detail std item label
-    
-    bysort IDCNTRY: mdesc NBOOK BSBG05* BSBG06A BSBG06B /*BSBG05 BSBG06A BSBG06B BSBG06C BSBG06D BSBG06E BSBG06F BSBG06G BSBG06H BSBG06I BSBG06J BSBG06K*/
-    tab NBOOK, gen(dbook)
-    foreach var of varlist dbook* BSBG05* BSBG06A BSBG06B  /*BSBG05 BSBG06A BSBG06B BSBG06C BSBG06D BSBG06E BSBG06F BSBG06G BSBG06H BSBG06I BSBG06J BSBG06K*/ {
-      bysort IDCNTRY IDSCHOOL: egen `var'_mean = mean(`var')
-      bysort IDCNTRY: egen `var'_mean_cnt = mean(`var')
-      replace `var' = `var'_mean if missing(`var')
-      replace `var' = `var'_mean_cnt if missing(`var')
-      egen `var'_std = std(`var')
-    }
-    
-    *Some countries are not asked the additional items:
-    pca dbook*_std BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std BSBG06G_std BSBG06H_std BSBG06I_std BSBG06J_std BSBG06K_std*/ [weight = TOTWGT]
-    predict HOMEPOS
-    
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std BSBG06G_std BSBG06H_std BSBG06I_std BSBG06J_std*/  [weight = TOTWGT]
-    predict HOMEPOS1
-    
-    
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std BSBG06G_std BSBG06H_std BSBG06I_std*/ [weight = TOTWGT]
-    predict HOMEPOS2
-    pca dbook*_std BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std BSBG06G_std BSBG06H_std*/ [weight = TOTWGT]
-    predict HOMEPOS3
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std BSBG06G_std*/ [weight = TOTWGT]
-    predict HOMEPOS4
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std BSBG06F_std*/ [weight = TOTWGT]
-    predict HOMEPOS5
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06D_std BSBG06E_std*/ [weight = TOTWGT]
-    predict HOMEPOS6
-    pca dbook*_std  BSBG05*_std BSBG06A_std BSBG06B_std /*BSBG05_std BSBG06A_std BSBG06B_std BSBG06C_std BSBG06E_std BSBG06F_std BSBG06G_std*/ [weight = TOTWGT]
-    predict HOMEPOS7
-    forvalues i = 1/7 {
-      replace HOMEPOS = HOMEPOS`i' if missing(HOMEPOS)
-    }
-    
-    
-    egen HIEDU = rowmax(BSBG06A BSBG06B)
-
-        
-    
-    *Replacing missing values of HIEDU:
-    bysort IDCNTRY IDSCHOOL: egen HIEDU_mode = mode(HIEDU), maxmode
-    bysort IDCNTRY: egen HIEDU_mode_cnt = mode(HIEDU), maxmode
-    replace HIEDU = HIEDU_mode if missing(HIEDU)
-    replace HIEDU = HIEDU_mode_cnt if missing(HIEDU)
-
-    label values HIEDU BSBG07A
-    polychoricpca HIEDU HOMEPOS [weight = TOTWGT], score(ESCS) nscore(1)
-    ren ESCS1 ESCS
-
-    *Identify countries with missing information on Education or Occupation:
-    gen tag_missing_education = .
-    levelsof IDCNTRY, local (country)
-    foreach c of local country {
-      mdesc HIEDU if IDCNTRY == `c'
-      replace tag_missing_education = 1 if r(percent) == 100 & IDCNTRY == `c'
-    }
-    gen LANGATHOME = 1 if inlist(BSBG03,1,2)
-    replace LANGATHOME = 0 if inlist(BSBG03,3,4)
-    label var LANGATHOME "Speaks language of test at home"
-    *Data on early childhood education not available.
-    gen NATIVE = 1 if BSBG09A == 1 | BSBG08A == 1 | BSBG08B == 1
-    replace NATIVE = 0 if (BSBG09A == 0 & BSBG09B == 0)
-    
-    bysort IDCNTRY IDSCHOOL : egen SCHESCS = mean(ESCS)
-    bysort IDCNTRY: egen CNTESCS = mean(ESCS)
-
-    *** QUICK FIX ****
-    rename *, lower
-    ******************
-	
-	* Quintiles of ESCS // this setion of the code used to be in 0221 or 0222.
-	* This is the variable used to compute results by Socio Economic Status.
-	* Ensure that CNTRY Identifer is used as STRING.
-	*<_qescs_>
-	tempvar cntrycode
-	cap: confirm numeric variable idcntry_raw
-	if (_rc == 0) {
-		tostring idcntry_raw, gen(`cntrycode')
-	}
-	else {
-		clonevar `cntrycode' = idcntry_raw
-	}
-	cap: sum qescs
-	if (_rc!=0) {
-		gen byte qescs = .
-		levelsof idgrade, local(grades)
-		levelsof `cntrycode', local(countries)
-		foreach country of local countries {
-			foreach grade of local grades {
-				capture drop qaux
-				capture xtile qaux = escs if `cntrycode' == "`country'" & idgrade == `grade' [aw = learner_weight] , nq(5)
-				if _rc == 0 replace qescs = qaux if `cntrycode' == "`country'" & idgrade == `grade'
-			}
-		}
-	}
-	label var qescs "Quintiles of Socio-Economic Status"
-	*</_qescs_>
-
-	 *<_has_qescs_>
-	gen byte has_qescs = (qescs != .)
-	label var has_qescs "Dummy variable for observations with a valid QESCS"
-	*</_has_qescs_>
-	
-    noi disp as res "{phang}Step U.4 completed (`output_file'){p_end}"
-
+   
     // FINISHED UPPER GRADE TEMP FILE
     save "`temp_dir'/TEMP_`surveyid'_u.dta", replace
 
