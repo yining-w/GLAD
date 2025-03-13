@@ -4,14 +4,13 @@
 *
 * Metadata to be stored as 'char' in the resulting dataset (do NOT use ";" here)
 local region      = "WLD"
-local year        = "2019"
+local year        = "2023"
 local assessment  = "TIMSS"
 local master      = "v01_M"
 local adaptation  = "wrk_A_GLAD"
 local module      = "ALL"
 local ttl_info    = "Joao Pedro de Azevedo [eduanalytics@worldbank.org]"
 local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
-
 
   // Set up folders in clone and define locals to be used in this do-file
   glad_local_folder_setup , r("`region'") y("`year'") as("`assessment'") ma("`master'") ad("`adaptation'")
@@ -21,9 +20,10 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
   local output_file  "`surveyid'_`adaptation'_`module'"
 
   // If user does not have access to datalibweb, point to raw microdata location
-    local input_dir	= "${input}/`region'/`region'_`year'_`assessment'/`surveyid'/Data/Stata"
+    local input_dir	= "C:/Users/`c(username)'/CGD Education Dropbox/Education Team Files/Research/Household Survey Datasets/TIMSS/raw"
   
   
+*
 * Steps:
 * 0) Program setup (identical for all assessments)
 * 1) Open all rawdata, lower case vars, save in temp_dir
@@ -34,24 +34,10 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 * 5) Bring WB countrycode & harmonization thresholds, and save dtas
 *=========================================================================*
 
-*Comment_AR: noisily or quietly use while debugging.
 
-  *---------------------------------------------------------------------------
-  * 0) Program setup (identical for all assessments)
-  *---------------------------------------------------------------------------
-    
-    *****************************************************************************
-    * IMPORTANT!!!  THIS CODE BASICALLY BUILDS TWO DTAs (lower/upper idgrade)	  *
-    * then append (could be a loop, pending more changes in the original pieces)*
-    *****************************************************************************
-    **********************   LOWER IDGRADE SECTION   ****************************
-
-    *---------------------------------------------------------------------------
-    * L.1) Open all rawdata, lower case vars, save in temp_dir
-    *---------------------------------------------------------------------------
-	cap confirm file "${clone}/01_harmonization/011_rawdata/TEMP19.dta"
+	//cap confirm file "${clone}/01_harmonization/011_rawdata/TEMP23.dta"
 	
-	if _rc != 0 {
+	//if _rc == 0 {
 
 	* Loop over grade
 	foreach g in 4 8 {
@@ -64,9 +50,15 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 			local fils "b"
 		}
 		
+	  //  local input_dir	= "C:/Users/`c(username)'/CGD Education Dropbox/Education Team Files/Research/Household Survey Datasets/TIMSS/raw"
+//local g 4
 	* Get all the files that exist 
-	cd "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data"
-	fs *m7.sav
+	cd "`input_dir'/TIMSS2023_IDB_SPSS_G`g'/2_Data Files/SPSS Data"
+	fs *m8*
+	
+	//		import spss using "`input_dir'/TIMSS2023_IDB_SPSS_G`g'/2_Data Files/SPSS Data/asamkdm8.sav",  clear
+
+	
 	local fil `r(files)'
 	
 	* Loop get a full list of countries
@@ -91,71 +83,74 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 		}
 		else {
 
-		import spss using "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`prefix'`c'm7.sav",  clear
+		import spss using "`input_dir'/TIMSS2023_IDB_SPSS_G`g'/2_Data Files/SPSS Data/`prefix'`c'm8.sav",  clear
 		noi di "loading `prefix'"
-
 		
         rename *, lower
 
         compress
 		
-        save "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`prefix'.dta", replace
+        save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/`prefix'.dta", replace
 		noi di "`c' `prefix' saved"
 		
 		* end skip case, 8th grade home
 		}
 	* next prefix 
 	}
-		if `g' == 4 {
-			local bulvar 11 
-			local princvar 15
-		}
-		else if `g' == 8 {
-			local bulvar 14 	
-			local princvar 16
-		}
+
 		
         // Merge the 4 rawdatasets into a single TEMP country file
-		* Scores dataset
-        use "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`fils'sa.dta", clear
-				 
-		cap drop me* se* mp* sp* mn*
-		cap drop me* se* mp* sp* 			
-
-		//if `g'==4 {		
-        merge 1:1 idschool idstud using "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`fils'sg.dta", keep(master match) nogen keepusing(*sbg01 *sbgssb *sbgsb *sdgssb *sdgsb jkzone jkrep idschool *sbg`bulvar'*)
-		// *sdghrl *sbghrl 
-		//}
 		
+		if `g' == 4 {
+			local bulvar 14 
+			local princvar 14
+		}
+		else if `g' == 8 {
+			local bulvar 17
+			local princvar 15
+		}
+		
+		* Scores dataset
+        use "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/`fils'sa.dta", clear
+		
+		* Just keep the main scores and not individual questions
+		keep cty idcntry idpop idgrader idgrade itassess idbook idschool idclass idstud itsex *sdage *sssci0* *smmat0*
+
+        merge 1:1 idschool idstud using "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/`fils'sg.dta", keep(master match) nogen //keepusing(*sbg01 *sbgssb *sbgsb *sdgssb *sdgsb jkzone jkrep idschool *sbg`bulvar'*)
+
+
 		// only merge home questionnaire for grade 4		
 		if `g' == 4 {
-        merge 1:1 idschool idstud using "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`fils'sh.dta", keep(master match) nogen keepusing(*sbhela *sdhela *sbhena *sdhena *sbheln *sdheln *sbhelt *sdhelt *sbhent *sdhent *sbhlnt *sdhlnt *sbhpsp *sdhpsp *sbghrl *sdghrl idschool )
+        merge 1:1 idschool idstud using "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/`fils'sh.dta", keep(master match) nogen //keepusing(*sbhela *sdhela *sbhena *sdhena *sbheln *sdheln *sbhelt *sdhelt *sbhent *sdhent *sbhlnt *sdhlnt *sbhpsp *sdhpsp idschool )
 	}
 		
 
-        merge m:1 idschool using "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/`fils'cg.dta", keep(master match) keepusing(idschool schwgt stotwgtu wgtadj1 wgtfac1 jkcrep jkczone *cbg`princvar'* *cdgdas *cbgdas *cbg05* *cdgsbc) nogen //  acdgdas acbgdas
+        merge m:1 idschool using "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/`fils'cg.dta", keep(master match) //keepusing(idschool schwgt stotwgtu wgtadj1 wgtfac1 jkcrep jkczone *cbg`princvar'* *cdgdas *cbgdas *cbg05* *cdgsbc) nogen //  acdgdas acbgdas
 
 		gen grade = `g'
 		if `g' == 8 {
-			ren *sbg14* *sbg11*
-			ren *cbg16* *cbg15*
-
+			drop *sbg14*
+			drop *cbg14*
+			ren *sbg17* *sbg14* 
+			ren *cbg15* *cbg14*
 		}
-		cap ren b* a*
-		
-        save "${clone}/01_harmonization/011_rawdata/T19_G`g'_SPSS Data/TEMP_l_`c'.dta", replace
+
+		//cap ren b* a*
+        save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP_l_`c'`g'.dta", replace
 		
 		// next country
       }	  
 
 	// next grade
   }
+  
+ 
 
     *---------------------------------------------------------------------------
     * L.2) Combine all rawdata into a single file (merge and append)
     *---------------------------------------------------------------------------
-	cd "${clone}/01_harmonization/011_rawdata/T19_G4_SPSS Data"
-	fs 	TEMP*
+	cd "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023"
+	fs 	TEMP*4*
 
     local firstfile: word 1 of `r(files)'
     use "`firstfile'", clear
@@ -163,34 +158,39 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
       if "`f'" != "`firstfile'" append using "`f'"
     }
 	
-	tempfile g4
-	save `g4', replace
+    save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP23_G4.dta", replace
+
+//	tempfile g4
+//	save `g4', replace
 	
-	cd "${clone}/01_harmonization/011_rawdata/T19_G8_SPSS Data"
-	fs 	TEMP*
+	cd "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/T23_G8_SPSS Data"
+	fs 	TEMP*8*
 
     local firstfile: word 1 of `r(files)'
     use "`firstfile'", clear
     foreach f in `r(files)' {
       if "`f'" != "`firstfile'" append using "`f'"
     }
-	
-	append using `g4'
+
+	    save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP23_G8.dta", replace
+
+	//append using `g4'
 
 	//drop me* se* mn* sp*
+e
+    save "${clone}/01_harmonization/011_rawdata/TEMP23.dta", replace
 
-    save "${clone}/01_harmonization/011_rawdata/TEMP19.dta", replace
+    noi disp as res "{phang}Step L.1 completed {p_end}"	 
+	//}
 
-    noi disp as res "{phang}Step L.1 completed {p_end}"
-
-	}
     *---------------------------------------------------------------------------
     * L.3) Standardize variable names across all assessments
     *---------------------------------------------------------------------------
-	
-	use "${clone}/01_harmonization/011_rawdata/TEMP19.dta", clear
     // For each variable class, we create a local with the variables in that class
     //     so that the final step of saving the GLAD dta  knows which vars to save
+	
+    use "${clone}/01_harmonization/011_rawdata/TEMP23.dta", clear
+
     // ID Vars:
     local idvars "idcntry_raw idschool idgrade idclass idlearner"
 
@@ -252,7 +252,7 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
     
 	
     // TRAIT Vars:
-    local traitvars	"age male bullying_* violence_* urba* ses*" // urban* 
+    local traitvars	"age male bullying_* violence_* urba* ses* " // urban* 
 
     *<_age_>
     gen int age = asdage  if  !missing(asdage)  &  asdage != 99    
@@ -271,6 +271,11 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
     decode acbg05b, g(urban_o2)
     label var urban_o2 "Original variable of urban: school is located in urban/rural area"
     *</_urban_o_>
+	
+	*<_ses_c_>*
+	clonevar ses_c = acdgsbc
+	*</_ses_c_>*
+
 
     *<_male_>
     gen byte male = (itsex == 2)  &  !missing(itsex)
@@ -285,8 +290,8 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 	*<_bullying_pv_>*
 	gen bullying_pv = . 
 	foreach v in e f g l n {
-		replace bullying_pv = 1 if asbg11`v' <= 2
-		replace bullying_pv = 0 if asbg11`v' > 2 & bullying_pv == . 
+		replace bullying_pv = 1 if asbg14`v' <= 2
+		replace bullying_pv = 0 if asbg14`v' > 2 & bullying_pv == . 
 	}
 	
 	*</_bullying_pv_>*
@@ -294,24 +299,24 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 	*<_bullying_ev_all_>*
 	gen bullying_ev_all = . 
 	foreach v in a b c d e f g h i j k m {
-		replace bullying_ev_all = 1 if asbg11`v' <= 2
-		replace bullying_ev_all = 0 if asbg11`v' > 2 & bullying_ev_all == . 
+		replace bullying_ev_all = 1 if asbg14`v' <= 2
+		replace bullying_ev_all = 0 if asbg14`v' > 2 & bullying_ev_all == . 
 	}
 	*</_bullying_ev_all_>*
 	
 	*<_bullying_ev_online_>*
 	gen bullying_ev_online = . 
 	foreach v in h i j {
-		replace bullying_ev_online = 1 if asbg11`v' <= 2
-		replace bullying_ev_online = 0 if asbg11`v' > 2 & bullying_ev_online == . 
+		replace bullying_ev_online = 1 if asbg14`v' <= 2
+		replace bullying_ev_online = 0 if asbg14`v' > 2 & bullying_ev_online == . 
 	}
 	*</_bullying_ev_online_>*
 	
 	*<_bullying_ev_trad_>*
 	gen bullying_ev_trad = . 
 	foreach v in a b c d e f k m {
-		replace bullying_ev_trad = 1 if asbg11`v' <= 2
-		replace bullying_ev_trad = 0 if asbg11`v' > 2 & bullying_ev_trad == . 
+		replace bullying_ev_trad = 1 if asbg14`v' <= 2
+		replace bullying_ev_trad = 0 if asbg14`v' > 2 & bullying_ev_trad == . 
 	}
 	*</_bullying_ev_trad_>*
 	
@@ -326,30 +331,20 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 	*<_bullying_c_all_>*
 	gen bullying_c_all = .
 	foreach v in h i {
-		replace bullying_c_all = 1 if acbg15`v' >= 3 
-		replace bullying_c_all = 0 if acbg15`v' < 3 & bullying_c_all == .
+		replace bullying_c_all = 1 if acbg14`v' >= 3 
+		replace bullying_c_all = 0 if acbg14`v' < 3 & bullying_c_all == .
 	}
+	* Grade 4 question is not exact (physical fights vs physical injury)
+	* So we exlcude this
+	replace bullying_c_all = . if grade == 4 
 	*</_bullying_c_all_>*
 	
-	* Any violence is a problem
-	*<_violence_c_all_>*
-	gen violence_c_all = .
-	foreach v in h i j k {
-		replace violence_c_all = 1 if acbg15`v' >= 3 
-		replace violence_c_all = 0 if acbg15`v' < 3 & violence_c_all == .
-	}
-	*</_violence_c_all_>*
 
-
-	* Violence from teachers is a moderate to severe problem 
-	*<_violence_c_cp_>*
-	gen byte violence_c_cp = (acbg15j>=3)
-	*</_violence_c_cp_>*
-	
-	* Violence to teachers is a moderate to severe problem
+	* Violence to teachers is a moderate to severe problem 
 	*<_violence_c_teach_>*
-	gen byte violence_c_teach = (acbg15k>=3)
+	gen byte violence_c_teach = (acbg14j>=3 | acbg14k>=3)
 	*</_violence_c_teach_>*
+	
 
     // SAMPLE Vars:
     local samplevars "learner_weight jkzone jkrep school_weight jkcrep jkczone"
@@ -363,10 +358,6 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
     clonevar learner_weight = totwgt
     label var learner_weight "Total learner weight"
     *</_learner_weight_>
-	
-	*<_ses_c_>*
-	clonevar ses_c = acdgsbc
-	*</_ses_c_>*
 
     *<_jkzone_>
     label var jkzone "Jackknife zone"
@@ -387,9 +378,7 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
 
 
     noi disp as res "{phang}Step L.3 completed (`output_file'){p_end}"
-    
-    
-    
+
     *---------------------------------------------------------------------------
     * 5) Bring WB countrycode & harmonization thresholds, and save dtas
     *---------------------------------------------------------------------------
@@ -397,11 +386,19 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
     // Brings World Bank countrycode from ccc_list
     // NOTE: the *assert* is intentional, please do not remove it.
     // if you run into an assert error, edit the 011_rawdata/master_countrycode_list.csv
-    merge m:1 idcntry_raw using "`temp_dir'/countrycode_list.dta", keep(match) assert(match using) nogen
+	
+	* one inconsistency with wb countrycode
+	ren cty countrycode
+	replace countrycode = "ROU" if countrycode == "ROM"
+	
+    //merge m:1 idcntry_raw using "`temp_dir'/countrycode_list.dta", keep(match) assert(match using) nogen
 
     // Surveyid is needed to merge harmonization proficiency thresholds
     gen str surveyid = "`region'_`year'_`assessment'"
     label var surveyid "Survey ID (Region_Year_Assessment)"
+	
+	gen byte national_level = !inlist(countrycode, "AAD", "ADU", "ASH", "BFL", "BFR", "COT", "CQU", "ENG")
+	
 
     // New variable class: keyvars (not IDs, but rather key to describe the dataset)
     local keyvars "surveyid countrycode national_level"

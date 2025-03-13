@@ -6,6 +6,7 @@
 
 cap program drop glad_local_folder_setup
 program  define  glad_local_folder_setup, rclass
+	global output "${clone}/01_harmonization/013_outputs"
 
   * Names:
   syntax , Region(string) Year(string) ASsessment(string) MAster(string) ADaptation(string)

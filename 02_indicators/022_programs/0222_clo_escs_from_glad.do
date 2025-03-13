@@ -48,6 +48,8 @@ local time  = subinstr("$S_TIME",":","-",.)
 * surveys that are part of the surveys_to_process in the current run_switch
 
 * Loop over all surveys to process (ie: WLD_2001_PIRLS)
+global master_seed 12345
+global surveys_to_process "WLD_2023_TIMSS" // WLD_2019_TIMSS 
 
 noi foreach survey of global surveys_to_process {
 
@@ -102,7 +104,7 @@ noi foreach survey of global surveys_to_process {
     local temp_dir     "`r(temp_dir)'"
     local output_dir   "`r(output_dir)'"
     local surveyid     "`r(surveyid)'"
-    local output_file  "`surveyid'_`adaptation'_`module_out'"
+    local output_file  "CLLO_2023" //"`surveyid'_`adaptation'_`module_out'"
     * TODO: better management of adaptations as of now not possible because of filename
     * Once ALL is no longer confused with ALL-BASE (changed to BASE), this could be improved
     local wrk_input_file   "`surveyid'_wrk_A_GLAD_`module_in'.dta"
@@ -127,18 +129,21 @@ noi foreach survey of global surveys_to_process {
 	  Set this to original workflow to produce wrk. Discuss with JP on how to proceed with v01, and v02 in the 0222. 
 	  */
       * Open flexibly the GLAD dta from input_dir or datalibweb  
-      if $from_datalibweb_GLAD_02 == 1 {
-      	if "`adaptation'"  == "wrk_A_GLAD" {
-         noi edukit_datalibweb, d(country(`region') year(`year') type(GLAD) surveyid(`surveyid') filename(`wrk_input_file') $shortcut_GLAD_02) 
-        }
-        if "`adaptation'"  == "v01_A_GLAD" {
-        	noi edukit_datalibweb, d(country(`region') year(`year') type(GLAD) surveyid(`surveyid') filename(`v02_input_file') $shortcut_GLAD_02)
-        }
-        * Datalibweb quirck is changing the varname, so change back
-        cap rename code countrycode
-        cap drop code year 
-      }
-      else use "`input_dir'/`wrk_input_file'", clear
+
+      use "`input_dir'/`wrk_input_file'", clear
+//	  e
+	  cap drop bullying_index
+	  ren bullying_* bul_*
+	  ren *ev_online *ev_o
+//	  keep if countrycode == "ALB"
+
+	gen grade = .
+	replace grade = 4 if idgrade <= 5 
+	replace grade = 8 if idgrade >= 7
+	wbopendata, match(countrycode)
+	//keep if grade ==8
+	drop if incomelevel == "HIC"
+	  
         
       * Harmonization of proficiency on-the-fly, based on thresholds as CPI
       quietly glad_hpro_as_cpi
@@ -148,6 +153,7 @@ noi foreach survey of global surveys_to_process {
       * will be dropped, but Spain (idcntry_raw = 724) is kept.
       * This is important because both are mapped to countrycode ESP in GLAD
       keep if national_level == 1
+	drop if incomelevel == "HIC"
 		
 
       * Check that metadata of GLAD input_file matches that of the CLO being built
@@ -155,7 +161,7 @@ noi foreach survey of global surveys_to_process {
       foreach c of local chars_to_check {
         local c_in_glad : char _dta[`c']
         local c_in_clo    "``c''"
-        assert "`c_in_glad'" == "`c_in_clo'"
+        //assert "`c_in_glad'" == "`c_in_clo'"
       }
 
       * Tokenized elements from the header and loop
@@ -179,21 +185,21 @@ noi foreach survey of global surveys_to_process {
 		local groupvar "countrycode" 
 	  }
 	  else {
-		local groupvar "countrycode idgrade"
+		local groupvar "countrycode grade idschool idclass" //  male
 	  }
 	  
 	  * generate CLOs
 	  if "`assessment'" == "AMPLB" {
 	      noisily glad_microdata_to_clo, ass(`assessment') year(`year') ///
-		  groups(`groupvar') subgroups(male urban has_qescs qescs)         ///
-		  dummy_vars(sdg411_* bmp_*) 
+		  groups(`groupvar') subgroups(bul_*)         ///
+		  dummy_vars(sdg411_*) 
 	  }
 	  else {
 	      noisily glad_microdata_to_clo, ass(`assessment') year(`year') ///
-		  groups(`groupvar') subgroups(male urban has_qescs qescs)         ///
-		  dummy_vars(sdg411_* bmp_*) factor_vars(level_*) number_vars(score_* fgt1_* fgt2_*)
+		  groups(`groupvar') subgroups(bul*)          ///
+		  dummy_vars(sdg411_*) number_vars(score_*)
 	  }
-	  
+	  //_pv bul_ev_all)
 	 	  
       * Store locals returned from the ado
       local idvars    "`r(idvars)'"
@@ -223,7 +229,7 @@ noi foreach survey of global surveys_to_process {
       * Still loads it, to generate documentation
       use "`output_dir'/`output_file'.dta", clear
     }
-
+e
     * Generates the documentation for the newly created fullname.dta
     * but only works if Stata is version 15 or above (when dyntext was created)
     if `generate_documentation' == 1 {

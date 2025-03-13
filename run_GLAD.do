@@ -29,7 +29,7 @@ qui {
   * The division of surveys in switches was done by processing time (known a posteriori)
   local surveys_in_switch_1 "WLD_2006_PIRLS WLD_2011_PIRLS WLD_2003_TIMSS"
   local surveys_in_switch_2 "WLD_2016_PIRLS WLD_2007_TIMSS"
-  local surveys_in_switch_3 "WLD_2001_PIRLS WLD_2011_TIMSS"
+  local surveys_in_switch_3 "WLD_2019_TIMSS"
   local surveys_in_switch_4 "LAC_2006_LLECE LAC_2013_LLECE LAC_2013_LLECE-T SSA_2000_SACMEQ SSA_2007_SACMEQ SSA_2014_PASEC WLD_2015_TIMSS"
   * Not including draft surveys "LAC_1997_LLECE SSA_1995_SACMEQ SSA_1996_PASEC WLD_All_EGRA"
 
@@ -67,7 +67,7 @@ qui {
 do "${clone}/01_harmonization/012_programs/012_run.do"
 
 * TASK 02_INDICATORS: creates the CLOs from GLADs (in datalibweb or clone)
-do "${clone}/02_indicators/022_programs/022_run.do"
+//do "${clone}/02_indicators/022_programs/022_run.do"
 
 * TASK 03_DATALIBWEB: publish/compare clone files to those already on DLW
 * do "${clone}/03_datalibweb/032_programs/032_run.do"

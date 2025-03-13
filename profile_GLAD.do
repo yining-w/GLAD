@@ -51,8 +51,8 @@ qui {
     global clone   "C:/GitHub_mytasks/GLAD"
   }
   * Natasha
-  else if inlist("`c(username)'","wb419051","WB419051") {
-    global clone   "C:/Users/wb419051/Documents/GitHub/GLAD"
+  else if inlist("`c(username)'","YiNingWong") {
+    global clone   "C:/Users/YiNingWong/GitHub/GLAD"
   }
   /* WELCOME!!! ARE YOU NEW TO THIS CODE?
      Add yourself by copying the lines above, making sure to adapt your clone */
@@ -74,17 +74,13 @@ qui {
   * Download and install required user written ado's
   *-----------------------------------------------------------------------------
   * Fill this list will all user-written commands this project requires
-  local user_commands fs pv seq mdesc alphawgt touch polychoric
+  local user_commands pv fs seq mdesc alphawgt touch // 
 
   * Loop over all the commands to test if they are already installed, if not, then install
   foreach command of local user_commands {
     cap which `command'
-    if _rc == 111 {
-      * Polychoric is not in SSC so is checked separately
-      if "`command'" == "polychoric" net install polychoric, from("http://staskolenikov.net/stata")
-      *All other commands installed through SSC
-      else  ssc install `command'
-    }
+      cap else  ssc install `command'
+    
   }
 
   * Load project specific ado-files
