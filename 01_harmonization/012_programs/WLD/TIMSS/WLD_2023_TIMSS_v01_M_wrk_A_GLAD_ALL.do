@@ -158,12 +158,37 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
       if "`f'" != "`firstfile'" append using "`f'"
     }
 	
+	* just do the cleaning here 
+	gen countrycode = cty 
+	wbopendata, match(countrycode)
+	drop if incomelevel == "HIC"
+	drop if countryname == ""
+	drop countryname region regionname adminregion adminregionname incomelevel incomelevelname lendingtype lendingtypename 
+	
+	* drop dups accidentally extra append
+	duplicates drop 
+	
+	preserve 
+	gen subject = "science"
+	ren asssci01 score
+	drop asmmat01 
+	tempfile math 
+	save `math', replace 
+	restore
+	gen subject = "math"
+	ren asmmat01 score
+	drop asssci01 
+	append using `math'
+	
+	order countrycode cty idcntry idpop idgrader idgrade grade itassess idbook idschool idclass idstud itsex asdage subject score 
+	lab var score "Score for math/science"
+	
     save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP23_G4.dta", replace
 
 //	tempfile g4
 //	save `g4', replace
 	
-	cd "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/T23_G8_SPSS Data"
+	cd "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023"
 	fs 	TEMP*8*
 
     local firstfile: word 1 of `r(files)'
@@ -172,13 +197,37 @@ local dofile_info = "last modified by Ahmed Raza in January 29, 2021"
       if "`f'" != "`firstfile'" append using "`f'"
     }
 
+	* just do the cleaning here 
+	gen countrycode = cty 
+	wbopendata, match(countrycode)
+	drop if incomelevel == "HIC"
+	drop if countryname == ""
+	drop countryname region regionname adminregion adminregionname incomelevel incomelevelname lendingtype lendingtypename 
+	
+	* drop dups accidentally extra append
+	duplicates drop 
+	
+	preserve 
+	gen subject = "science"
+	ren bsssci01 score
+	drop bsmmat01 
+	tempfile math 
+	save `math', replace 
+	restore
+	gen subject = "math"
+	ren bsmmat01 score
+	drop bsssci01 
+	append using `math'
+	
+	order countrycode cty idcntry idpop idgrader idgrade grade itassess idbook idschool idclass idstud itsex bsdage subject score 
+	lab var score "Score for math/science"
 	    save "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP23_G8.dta", replace
 
 	//append using `g4'
 
 	//drop me* se* mn* sp*
-e
-    save "${clone}/01_harmonization/011_rawdata/TEMP23.dta", replace
+
+  //  save "${clone}/01_harmonization/011_rawdata/TEMP23.dta", replace
 
     noi disp as res "{phang}Step L.1 completed {p_end}"	 
 	//}
@@ -189,8 +238,17 @@ e
     // For each variable class, we create a local with the variables in that class
     //     so that the final step of saving the GLAD dta  knows which vars to save
 	
-    use "${clone}/01_harmonization/011_rawdata/TEMP23.dta", clear
-
+    //use "${clone}/01_harmonization/011_rawdata/TEMP23.dta", clear
+	foreach g in 4 8 {
+		noi di "Grade `g'"
+	    use "${clone}/01_harmonization/011_rawdata/WLD/TIMSS 2023/TEMP23_G`g'.dta", clear
+		
+	if `g'== 4 {
+		local v "a"
+	} 
+	else {
+		local v "b"
+	}
     // ID Vars:
     local idvars "idcntry_raw idschool idgrade idclass idlearner"
 
@@ -226,22 +284,22 @@ e
     local valuevars	"score_timss* level_timss*"
 
     *<_score_assessment_subject_pv_>
-    foreach pv in 01 02 03 04 05 {
-      clonevar  score_timss_math_`pv' = asmmat`pv'
+    foreach pv in 02 03 04 05 {
+      clonevar  score_timss_math_`pv' = `v'smmat`pv'
       label var score_timss_math_`pv' "Plausible value `pv': `assessment' score for math"
       char      score_timss_math_`pv'[clo_marker] "number"
-      clonevar  score_timss_scie_`pv' = asssci`pv'
+      clonevar  score_timss_scie_`pv' = `v'sssci`pv'
       label var score_timss_scie_`pv' "Plausible value `pv': `assessment' score for science"
       char      score_timss_scie_`pv'[clo_marker] "number"
     }
     *</_score_assessment_subject_pv_>
 
     *<_level_assessment_subject_pv_>
-    foreach pv in 01 02 03 04 05 {
-      clonevar  level_timss_math_`pv' = asmibm`pv'
+    foreach pv in 02 03 04 05 {
+      clonevar  level_timss_math_`pv' = `v'smibm`pv'
       label var level_timss_math_`pv' "Plausible value `pv': `assessment' level for math"
       char      level_timss_math_`pv'[clo_marker] "factor"
-      clonevar  level_timss_scie_`pv' = assibm`pv'
+      clonevar  level_timss_scie_`pv' = `v'ssibm`pv'
       label var level_timss_scie_`pv' "Plausible value `pv': `assessment' level for science"
       char      level_timss_scie_`pv'[clo_marker] "factor"
     }
@@ -255,25 +313,25 @@ e
     local traitvars	"age male bullying_* violence_* urba* ses* " // urban* 
 
     *<_age_>
-    gen int age = asdage  if  !missing(asdage)  &  asdage != 99    
+    gen int age = `v'sdage  if  !missing(`v'sdage)  &  `v'sdage != 99    
 	
 	label var age "Learner age at time of assessment"
     *</_age_>
 
     *<_urban_>
-    gen byte urban = (inlist(acbg05a,1, 2, 3, 4, 5))  if  !missing(acbg05a)  &  acbg05a != 9
+    gen byte urban = (inlist(`v'cbg05a,1, 2, 3, 4, 5))  if  !missing(`v'cbg05a)  &  `v'cbg05a != 9
     label var urban "School is located in urban/rural area"
     *</_urban_>
 
     *<_urban_o_>
-    decode acbg05a, g(urban_o1)
+    decode `v'cbg05a, g(urban_o1)
     label var urban_o1 "Original variable of urban: population size of the school area"
-    decode acbg05b, g(urban_o2)
+    decode `v'cbg05b, g(urban_o2)
     label var urban_o2 "Original variable of urban: school is located in urban/rural area"
     *</_urban_o_>
 	
 	*<_ses_c_>*
-	clonevar ses_c = acdgsbc
+	clonevar ses_c = `v'cdgsbc
 	*</_ses_c_>*
 
 
@@ -284,45 +342,45 @@ e
 	
 	* Bullying *
     *<_bullying_index_>
-	clonevar bullying_index = asbgsb
+	clonevar bullying_index = `v'sbgsb
     *</_bullying_index_>
 	
 	*<_bullying_pv_>*
 	gen bullying_pv = . 
-	foreach v in e f g l n {
-		replace bullying_pv = 1 if asbg14`v' <= 2
-		replace bullying_pv = 0 if asbg14`v' > 2 & bullying_pv == . 
+	foreach b in e f g  {
+		replace bullying_pv = 1 if `v'sbg14`b' <= 2
+		replace bullying_pv = 0 if `v'sbg14`b' > 2 & bullying_pv == . 
 	}
 	
 	*</_bullying_pv_>*
 	
 	*<_bullying_ev_all_>*
 	gen bullying_ev_all = . 
-	foreach v in a b c d e f g h i j k m {
-		replace bullying_ev_all = 1 if asbg14`v' <= 2
-		replace bullying_ev_all = 0 if asbg14`v' > 2 & bullying_ev_all == . 
+	foreach b in a b c d h i j k  {
+		replace bullying_ev_all = 1 if `v'sbg14`b' <= 2
+		replace bullying_ev_all = 0 if `v'sbg14`b' > 2 & bullying_ev_all == . 
 	}
 	*</_bullying_ev_all_>*
 	
 	*<_bullying_ev_online_>*
 	gen bullying_ev_online = . 
-	foreach v in h i j {
-		replace bullying_ev_online = 1 if asbg14`v' <= 2
-		replace bullying_ev_online = 0 if asbg14`v' > 2 & bullying_ev_online == . 
+	foreach b in h i j {
+		replace bullying_ev_online = 1 if `v'sbg14`b' <= 2
+		replace bullying_ev_online = 0 if `v'sbg14`b' > 2 & bullying_ev_online == . 
 	}
 	*</_bullying_ev_online_>*
 	
 	*<_bullying_ev_trad_>*
 	gen bullying_ev_trad = . 
-	foreach v in a b c d e f k m {
-		replace bullying_ev_trad = 1 if asbg14`v' <= 2
-		replace bullying_ev_trad = 0 if asbg14`v' > 2 & bullying_ev_trad == . 
+	foreach b in a b c d k {
+		replace bullying_ev_trad = 1 if `v'sbg14`b' <= 2
+		replace bullying_ev_trad = 0 if `v'sbg14`b' > 2 & bullying_ev_trad == . 
 	}
 	*</_bullying_ev_trad_>*
 	
 	*<_bullying_any_>*
-	gen bullying_any = 1 if bullying_pv == 1 | bullying_ev_all == 1
-	replace bullying_any = 1 if bullying_pv == 1 & bullying_ev_all == 1
+	gen byte bullying_any =(bullying_pv==1 | bullying_ev_all ==1) if (bullying_ev_all != . | bullying_pv!=.)
+
 	*</_bullying_any_>*
 	
 	* Principal perception of bullying problems at school
@@ -330,22 +388,15 @@ e
 	* Bullying is a problem
 	*<_bullying_c_all_>*
 	gen bullying_c_all = .
-	foreach v in h i {
-		replace bullying_c_all = 1 if acbg14`v' >= 3 
-		replace bullying_c_all = 0 if acbg14`v' < 3 & bullying_c_all == .
+	foreach b in h i {
+		replace bullying_c_all = 1 if `v'cbg14`b' >= 3 
+		replace bullying_c_all = 0 if `v'cbg14`b' < 3 & bullying_c_all == .
 	}
 	* Grade 4 question is not exact (physical fights vs physical injury)
 	* So we exlcude this
 	replace bullying_c_all = . if grade == 4 
 	*</_bullying_c_all_>*
 	
-
-	* Violence to teachers is a moderate to severe problem 
-	*<_violence_c_teach_>*
-	gen byte violence_c_teach = (acbg14j>=3 | acbg14k>=3)
-	*</_violence_c_teach_>*
-	
-
     // SAMPLE Vars:
     local samplevars "learner_weight jkzone jkrep school_weight jkcrep jkczone"
 
@@ -375,8 +426,9 @@ e
     *<_jkczone_>
     label var jkczone "Jackknife school zone"
     *</_jkczone_>
-
-
+	
+	save "${clone}/01_harmonization/013_outputs/WLD/G`g'_TIMSS.dta", replace
+	}
     noi disp as res "{phang}Step L.3 completed (`output_file'){p_end}"
 
     *---------------------------------------------------------------------------
