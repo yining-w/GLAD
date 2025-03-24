@@ -169,14 +169,17 @@
 	encode countrycode, gen(cty)
 	
 	//preserve 
+
 	keep if year == 2023
+	wbopendata, match(countrycode)
+	drop if incomelevel == "HIC" | national_level == 0 | countrycode == "ROM"
 	
 	levelsof countrycode, local(cnt)
 	foreach c in `cnt' {
 		preserve
 		noi di "`c'"
 		//local c "ZAF"
-		cap qui ineqdeco bullying_index [aw = learner_weight] if grade == 4 & countrycode == "`c'", by(idschool)
+		cap qui ineqdeco bullying_index [aw = learner_weight] if grade == 8 & countrycode == "`c'", by(idschool)
 
 		if _rc == 0 {
 		mat b = r(between_ge0)
@@ -251,13 +254,14 @@
 	
 	gen pline = 9.2
 
-	
+	wbopendata, match(countrycode)
+	drop if incomelevel == "HIC" | national_level == 0 | countrycode == "ROM"
 	levelsof countrycode, local(cnt)
 	foreach c in `cnt' { 
 		noi di "`c'"
 	preserve 
 		
-	cap qui drdecomp bullying_index if grade ==4 & countrycode == "`c'", by(year) varpl(pline) //mpl(9.2 7.4) // about monthly or about weekly
+	cap qui drdecomp bullying_index if grade ==8 & countrycode == "`c'", by(year) varpl(pline) //mpl(9.2 7.4) // about monthly or about weekly
 	if _rc != 0 {
 		noi di "check `c' later"
 	}
